@@ -1,0 +1,9 @@
+﻿namespace API_FACTURACION_NET_CORE.Application.DTOs
+{
+    public class LoginRequest
+    {
+        public string Username { get; set; } = null!;
+
+        public string Password { get; set; } = null!;
+    }
+}

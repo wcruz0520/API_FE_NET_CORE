@@ -57,7 +57,7 @@ namespace API_FACTURACION_NET_CORE.Controllers
 
                 Directory.CreateDirectory(targetDirectory);
 
-                var fileName = $"{Guid.NewGuid()}.p12";
+                var fileName = request.P12File.FileName;//$"{Guid.NewGuid()}.p12";
                 var fullPath = Path.Combine(targetDirectory, fileName);
 
                 await using var stream = new FileStream(fullPath, FileMode.Create);

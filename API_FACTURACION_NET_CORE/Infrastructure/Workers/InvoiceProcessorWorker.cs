@@ -1,4 +1,6 @@
-﻿using API_FACTURACION_NET_CORE.Application.Services.Invoices;
+﻿using API_FACTURACION_NET_CORE.Application.DTOs.Invoices;
+using System.Text.Json;
+using API_FACTURACION_NET_CORE.Application.Services.Invoices;
 using API_FACTURACION_NET_CORE.Domain.Enums;
 using API_FACTURACION_NET_CORE.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -69,10 +71,17 @@ namespace API_FACTURACION_NET_CORE.Infrastructure.Workers
 
                     validationService.ValidatePayloadStructure(invoice.PayloadJson);
 
+                    var request = JsonSerializer.Deserialize<InvoiceRequest>(invoice.PayloadJson)
+                                  ?? throw new Exception("No se pudo deserializar el payload de la factura.");
+
+                    var ambiente = request.InfoTributaria?.Ambiente?.Trim();
+                    if (string.IsNullOrWhiteSpace(ambiente))
+                        throw new Exception("El ambiente en infoTributaria es obligatorio.");
+
                     var xmlContent = xmlGeneratorService.GenerateXml(invoice.PayloadJson);
 
                     var signedXml = xmlSignerService.SignXml(xmlContent, sriSettings.CertificatePath, sriSettings.CertificatePassword);
-                    var sriResult = await sriClientService.SendSignedInvoiceAsync(signedXml, invoice.ClaveAcceso, cancellationToken);
+                    var sriResult = await sriClientService.SendSignedInvoiceAsync(signedXml, invoice.ClaveAcceso, ambiente, cancellationToken);
 
                     invoice.XmlContent = signedXml;
 

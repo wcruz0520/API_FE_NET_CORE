@@ -36,6 +36,16 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
 
         private void ValidateInfoTributaria(InfoTributariaDto infoTributaria)
         {
+            if (string.IsNullOrWhiteSpace(infoTributaria.Ambiente))
+                throw new Exception("El ambiente es obligatorio.");
+
+            var ambiente = infoTributaria.Ambiente.Trim();
+            if (!string.Equals(ambiente, "1", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(ambiente, "2", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(ambiente, "PRUEBAS", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(ambiente, "PRODUCCION", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("El ambiente debe ser '1'/'PRUEBAS' o '2'/'PRODUCCION'.");
+
             if (string.IsNullOrWhiteSpace(infoTributaria.ClaveAcceso))
                 throw new Exception("La claveAcceso es obligatoria.");
 

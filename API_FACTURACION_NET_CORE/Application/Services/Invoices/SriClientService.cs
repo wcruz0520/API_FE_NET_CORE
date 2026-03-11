@@ -15,9 +15,11 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
             _settings = options.Value;
         }
 
-        public async Task<SriSubmissionResult> SendSignedInvoiceAsync(string signedXml, string claveAcceso, CancellationToken cancellationToken)
+        public async Task<SriSubmissionResult> SendSignedInvoiceAsync(string signedXml, string claveAcceso, string ambiente, CancellationToken cancellationToken)
         {
-            var recepcionResponse = await SendToRecepcionAsync(signedXml, cancellationToken);
+            var urls = ResolveUrlsByAmbiente(ambiente);
+
+            var recepcionResponse = await SendToRecepcionAsync(signedXml, urls.RecepcionUrl, cancellationToken);
             var estadoRecepcion = ExtractFirstNodeValue(recepcionResponse, "estado");
 
             if (!string.Equals(estadoRecepcion, "RECIBIDA", StringComparison.OrdinalIgnoreCase))
@@ -30,7 +32,7 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
                 };
             }
 
-            var autorizacionResponse = await SendToAutorizacionAsync(claveAcceso, cancellationToken);
+            var autorizacionResponse = await SendToAutorizacionAsync(claveAcceso, urls.AutorizacionUrl, cancellationToken);
 
             var estadoAutorizacion = ExtractFirstNodeValue(autorizacionResponse, "estado") ?? "DESCONOCIDO";
             var numeroAutorizacion = ExtractFirstNodeValue(autorizacionResponse, "numeroAutorizacion");
@@ -50,9 +52,9 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
             };
         }
 
-        private async Task<string> SendToRecepcionAsync(string signedXml, CancellationToken cancellationToken)
+        private async Task<string> SendToRecepcionAsync(string signedXml, string recepcionUrl, CancellationToken cancellationToken)
         {
-            ValidateUrl(_settings.RecepcionUrl, "RecepcionUrl");
+            ValidateUrl(recepcionUrl, "RecepcionUrl");
 
             var comprobanteBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(signedXml));
             var soapBody = $"""
@@ -66,12 +68,12 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
                            </soapenv:Envelope>
                            """;
 
-            return await PostSoapAsync(_settings.RecepcionUrl, soapBody, cancellationToken);
+            return await PostSoapAsync(recepcionUrl, soapBody, cancellationToken);
         }
 
-        private async Task<string> SendToAutorizacionAsync(string claveAcceso, CancellationToken cancellationToken)
+        private async Task<string> SendToAutorizacionAsync(string claveAcceso, string autorizacionUrl, CancellationToken cancellationToken)
         {
-            ValidateUrl(_settings.AutorizacionUrl, "AutorizacionUrl");
+            ValidateUrl(autorizacionUrl, "AutorizacionUrl");
 
             var soapBody = $"""
                            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ec="http://ec.gob.sri.ws.autorizacion">
@@ -84,7 +86,43 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
                            </soapenv:Envelope>
                            """;
 
-            return await PostSoapAsync(_settings.AutorizacionUrl, soapBody, cancellationToken);
+            return await PostSoapAsync(autorizacionUrl, soapBody, cancellationToken);
+        }
+
+        private (string RecepcionUrl, string AutorizacionUrl) ResolveUrlsByAmbiente(string? ambiente)
+        {
+            var ambienteNormalizado = ambiente?.Trim();
+
+            if (string.Equals(ambienteNormalizado, "2", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ambienteNormalizado, "PRODUCCION", StringComparison.OrdinalIgnoreCase))
+            {
+                return (
+                    SelectConfiguredUrl(_settings.RecepcionUrlProduccion, _settings.RecepcionUrl, "RecepcionUrlProduccion"),
+                    SelectConfiguredUrl(_settings.AutorizacionUrlProduccion, _settings.AutorizacionUrl, "AutorizacionUrlProduccion")
+                );
+            }
+
+            if (string.Equals(ambienteNormalizado, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(ambienteNormalizado, "PRUEBAS", StringComparison.OrdinalIgnoreCase))
+            {
+                return (
+                    SelectConfiguredUrl(_settings.RecepcionUrlPruebas, _settings.RecepcionUrl, "RecepcionUrlPruebas"),
+                    SelectConfiguredUrl(_settings.AutorizacionUrlPruebas, _settings.AutorizacionUrl, "AutorizacionUrlPruebas")
+                );
+            }
+
+            throw new Exception("El ambiente del comprobante no es válido. Use '1'/'PRUEBAS' o '2'/'PRODUCCION'.");
+        }
+
+        private static string SelectConfiguredUrl(string? preferredUrl, string? fallbackUrl, string configName)
+        {
+            if (!string.IsNullOrWhiteSpace(preferredUrl))
+                return preferredUrl;
+
+            if (!string.IsNullOrWhiteSpace(fallbackUrl))
+                return fallbackUrl;
+
+            throw new Exception($"No se configuró SRI:{configName}.");
         }
 
         private async Task<string> PostSoapAsync(string url, string soapEnvelope, CancellationToken cancellationToken)

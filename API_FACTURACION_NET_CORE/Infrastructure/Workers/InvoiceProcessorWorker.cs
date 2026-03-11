@@ -1,5 +1,4 @@
 ﻿using API_FACTURACION_NET_CORE.Application.Services.Invoices;
-using API_FACTURACION_NET_CORE.Domain.Entities;
 using API_FACTURACION_NET_CORE.Domain.Enums;
 using API_FACTURACION_NET_CORE.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +46,9 @@ namespace API_FACTURACION_NET_CORE.Infrastructure.Workers
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var validationService = scope.ServiceProvider.GetRequiredService<InvoiceValidationService>();
             var xmlGeneratorService = scope.ServiceProvider.GetRequiredService<InvoiceXmlGeneratorService>();
+            var xmlSignerService = scope.ServiceProvider.GetRequiredService<InvoiceXmlSignerService>();
+            var sriClientService = scope.ServiceProvider.GetRequiredService<SriClientService>();
+            var sriSettings = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<SriServiceSettings>>().Value;
 
             var pendingInvoices = await context.Invoices
                 .Where(x => x.Estado == InvoiceStatuses.Received)
@@ -69,25 +71,34 @@ namespace API_FACTURACION_NET_CORE.Infrastructure.Workers
 
                     var xmlContent = xmlGeneratorService.GenerateXml(invoice.PayloadJson);
 
-                    invoice.XmlContent = xmlContent;
-                    invoice.Estado = InvoiceStatuses.XmlGenerated;
+                    var signedXml = xmlSignerService.SignXml(xmlContent, sriSettings.CertificatePath, sriSettings.CertificatePassword);
+                    var sriResult = await sriClientService.SendSignedInvoiceAsync(signedXml, invoice.ClaveAcceso, cancellationToken);
+
+                    invoice.XmlContent = signedXml;
+
                     invoice.UpdatedAt = DateTime.UtcNow;
 
-                    await context.SaveChangesAsync(cancellationToken);
-
-                    await SimulateBusinessPipelineAsync(invoice, cancellationToken);
-
-                    invoice.Estado = InvoiceStatuses.Validated;
-                    invoice.ProcessedAt = DateTime.UtcNow;
-                    invoice.UpdatedAt = DateTime.UtcNow;
-                    invoice.ErrorMessage = null;
+                    if (string.Equals(sriResult.EstadoAutorizacion, "AUTORIZADO", StringComparison.OrdinalIgnoreCase))
+                    {
+                        invoice.Estado = InvoiceStatuses.Authorized;
+                        invoice.SriAuthorizationNumber = sriResult.NumeroAutorizacion;
+                        invoice.SriAuthorizationDate = sriResult.FechaAutorizacion;
+                        invoice.ProcessedAt = DateTime.UtcNow;
+                        invoice.ErrorMessage = null;
+                    }
+                    else
+                    {
+                        invoice.Estado = InvoiceStatuses.Validated;
+                        invoice.ErrorMessage = sriResult.Mensaje ?? $"Recepción: {sriResult.EstadoRecepcion}. Autorización: {sriResult.EstadoAutorizacion}.";
+                    }
 
                     await context.SaveChangesAsync(cancellationToken);
 
                     _logger.LogInformation(
-                        "Factura procesada. Id={InvoiceId}, ClaveAcceso={ClaveAcceso}",
+                        "Factura procesada con SRI. Id={InvoiceId}, ClaveAcceso={ClaveAcceso}, Estado={Estado}",
                         invoice.Id,
-                        invoice.ClaveAcceso);
+                        invoice.ClaveAcceso,
+                        invoice.Estado);
                 }
                 catch (Exception ex)
                 {
@@ -104,14 +115,6 @@ namespace API_FACTURACION_NET_CORE.Infrastructure.Workers
                         invoice.ClaveAcceso);
                 }
             }
-        }
-
-        private async Task SimulateBusinessPipelineAsync(Invoice invoice, CancellationToken cancellationToken)
-        {
-            await Task.Delay(2000, cancellationToken);
-
-            if (string.IsNullOrWhiteSpace(invoice.ClaveAcceso))
-                throw new Exception("La clave de acceso es inválida.");
         }
     }
 }

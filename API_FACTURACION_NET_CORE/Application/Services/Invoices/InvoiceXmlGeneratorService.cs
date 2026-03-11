@@ -1,4 +1,5 @@
 ﻿using API_FACTURACION_NET_CORE.Application.DTOs.Invoices;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
@@ -136,7 +137,7 @@ namespace API_FACTURACION_NET_CORE.Application.Services.Invoices
                 WriteElement(writer, "codigoPrincipal", detalle.CodigoPrincipal);
                 WriteElement(writer, "codigoAuxiliar", detalle.CodigoAuxiliar);
                 WriteElement(writer, "descripcion", detalle.Descripcion);
-                WriteElement(writer, "cantidad", detalle.Cantidad.ToString("0.##"));
+                WriteElement(writer, "cantidad", detalle.Cantidad.ToString("0.##", CultureInfo.InvariantCulture));
                 WriteElement(writer, "precioUnitario", detalle.PrecioUnitario);
                 WriteElement(writer, "descuento", detalle.Descuento);
                 WriteElement(writer, "precioTotalSinImpuesto", detalle.PrecioTotalSinImpuesto);

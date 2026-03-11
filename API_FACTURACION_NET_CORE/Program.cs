@@ -21,6 +21,10 @@ builder.Services.AddScoped<InvoiceService>();
 builder.Services.AddHostedService<InvoiceProcessorWorker>();
 builder.Services.AddScoped<InvoiceValidationService>();
 builder.Services.AddScoped<InvoiceXmlGeneratorService>();
+builder.Services.AddScoped<InvoiceXmlSignerService>();
+builder.Services.Configure<SriServiceSettings>(builder.Configuration.GetSection("SRI"));
+builder.Services.AddHttpClient<SriClientService>();
+
 
 builder.Services.AddAuthentication("Bearer")
 .AddJwtBearer("Bearer", options =>

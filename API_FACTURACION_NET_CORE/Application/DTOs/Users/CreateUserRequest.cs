@@ -1,20 +1,16 @@
-﻿namespace API_FACTURACION_NET_CORE.Domain.Entities
+﻿namespace API_FACTURACION_NET_CORE.Application.DTOs.Users
 {
-    public class User
+    public class CreateUserRequest
     {
-        public int Id { get; set; }
-
         public string Username { get; set; } = null!;
 
         public string Email { get; set; } = null!;
 
-        public string PasswordHash { get; set; } = null!;
+        public string Password { get; set; } = null!;
 
         public string Role { get; set; } = null!;
 
         public bool IsActive { get; set; } = true;
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public string? Identificacion { get; set; }
 
@@ -22,9 +18,9 @@
 
         public string? NombreComercial { get; set; }
 
-        public string? P12FilePath { get; set; }
+        public IFormFile? P12File { get; set; }
 
         public string? P12Password { get; set; }
-
     }
+
 }

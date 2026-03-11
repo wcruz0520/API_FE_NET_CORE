@@ -120,11 +120,26 @@ namespace API_FACTURACION_NET_CORE.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Identificacion")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("NombreComercial")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("P12FilePath")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("P12Password")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RazonSocial")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Role")

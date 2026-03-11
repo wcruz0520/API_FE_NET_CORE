@@ -76,7 +76,7 @@ namespace API_FACTURACION_NET_CORE.Controllers
             });
         }
 
-        [HttpGet("{claveAcceso:string}/xml")]
+        [HttpGet("{claveAcceso}/xml")]
         public async Task<IActionResult> GetXml(string claveAcceso)
         {
             var invoice = await _context.Invoices
